@@ -23,7 +23,12 @@ p_load(rio, # funcion import/export: permite leer/escribir archivos desde difere
        dplyr, #manipular dataframes
        data.table, # renombar variables
        sf,
-       rvest) 
+       rvest,
+       mapview,
+       tmaptools,
+       osmdata,
+       ggplot2,
+       viridis) 
 
 #1.1 Obtener las URL
 
@@ -40,7 +45,25 @@ lista_tablas=list()
 for (i in url_subset) {
   pagina=read_html(i)
   tabla=pagina %>% html_table(fill = TRUE)
-  lista_tablas[[i]] <-tabla[[1]]
+  lista_tablas[[i]] =tabla[[1]]
 }
 
-db_house <- rbindlist(lista_tablas)
+db_house=rbindlist(lista_tablas)
+
+db_house$geometry <- st_as_sfc(db_house$geometry, crs = 4326)
+
+sf_house=st_as_sf(db_house, sf_column_name = "geometry")
+class(sf_house)
+
+
+bog <- opq(bbox = getbb("Bogota Colombia")) %>%
+  add_osm_feature(key="boundary", value="administrative") %>% 
+  osmdata_sf()
+bog <- bog$osm_multipolygons %>% subset(admin_level==9 & !osm_id %in% 16011743:16011744)
+
+
+mapa=ggplot() + geom_sf(data=bog) + geom_sf(data=sf_house, aes(color=price))+
+  scale_fill_viridis(option = "A" , name = "Price")
+
+
+ggsave("output/mapaps4.pdf", plot = mapa, width = 10, height = 6, device = "pdf")
